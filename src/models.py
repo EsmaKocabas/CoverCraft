@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime, timezone
 from pydantic import BaseModel, Field, field_validator
 
@@ -32,9 +32,10 @@ class CoverTask(BaseModel):
     video_description: str = Field(default="CoverCraft otomasyonu ile üretilmiştir.", description="YouTube video açıklaması")
     tags: List[str] = Field(default_factory=lambda: ["AICover", "CoverCraft", "Music"], description="YouTube etiketleri")
     
-    # Yayın ve Hak Güvenliği
+    # Yayın ve Hak Güvenliği (Varsayılan private)
     rights_confirmed: bool = Field(default=False, description="Kullanım ve yayın hakkının doğrulandığına dair açık onay")
     synthetic_declaration: bool = Field(default=True, description="İçeriğin yapay zeka tarafından üretildiğine dair beyan")
+    privacy_status: Literal["private", "unlisted", "public"] = Field(default="private", description="YouTube video gizlilik durumu")
 
     # Durum Makinesi ve Zaman Damgaları (Teknik alanlar UTC saklanır)
     status: TaskStatus = Field(default=TaskStatus.PENDING, description="Görev işlenme durumu")
@@ -83,7 +84,6 @@ class CoverTask(BaseModel):
             return False
         if self.next_retry_at is not None:
             current_time = now_utc or datetime.now(timezone.utc)
-            # Timezone aware kontrolü
             if self.next_retry_at.tzinfo is None:
                 compare_retry = self.next_retry_at.replace(tzinfo=timezone.utc)
             else:

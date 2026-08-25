@@ -40,11 +40,6 @@ except Exception:
 
 
 class HeartbeatWorker(threading.Thread):
-    """
-    Ana scheduler döngüsü veya 20 dakikalık uzun GPU alt süreçleri çalışırken
-    heartbeat.json dosyasını arka planda düzenli (15s) güncelleyen daemon iş parçacığı.
-    Böylece uzun Demucs/RVC işlemlerinde container asla sahte 'unhealthy' durumuna düşmez.
-    """
     def __init__(self, heartbeat_file: str, get_status_callback, interval: float = 15.0):
         super().__init__(daemon=True, name="HeartbeatWorker")
         self.heartbeat_file = heartbeat_file
@@ -110,7 +105,6 @@ class CoverCraftOrchestrator:
         self._current_task_id: Optional[str] = None
         self._status: str = "idle"
 
-        # Arka plan heartbeat iş parçacığı
         self._heartbeat_worker = HeartbeatWorker(
             heartbeat_file=self.heartbeat_file,
             get_status_callback=self._get_heartbeat_status
@@ -137,7 +131,6 @@ class CoverCraftOrchestrator:
 
     @staticmethod
     def get_current_date() -> str:
-        """Europe/Istanbul saat diliminde bugünün tarihini YYYY-MM-DD olarak döndürür."""
         return datetime.datetime.now(LOCAL_TZ).strftime("%Y-%m-%d")
 
     def execute_task(self, task: CoverTask, cleanup_temp_files: bool = True) -> bool:
@@ -166,7 +159,7 @@ class CoverCraftOrchestrator:
 
         logger.info(f"{'='*60}")
         logger.info(f"GÖREV BAŞLATILDI: {task.id} | Başlık: {task.video_title}")
-        logger.info(f"Tarih: {task.date} | Model: {task.model_name} | Pitch: {task.pitch_shift}")
+        logger.info(f"Tarih: {task.date} | Model: {task.model_name} | Pitch: {task.pitch_shift} | Gizlilik: {task.privacy_status}")
         logger.info(f"{'='*60}")
 
         try:
@@ -215,14 +208,15 @@ class CoverCraftOrchestrator:
             )
 
             # 6. YouTube Yükleme Aşaması
-            logger.info("Adım 6/6: Durum UPLOADING olarak kilitleniyor ve video YouTube'a yükleniyor...")
+            logger.info(f"Adım 6/6: Durum UPLOADING olarak kilitleniyor ve video YouTube'a yükleniyor (Gizlilik: {task.privacy_status})...")
             self.queue_manager.mark_uploading(task.id)
 
             video_id = self.youtube_uploader.upload_video(
                 video_path=final_video_path,
                 title=task.video_title,
                 description=task.video_description,
-                tags=task.tags
+                tags=task.tags,
+                privacy_status=task.privacy_status
             )
 
             # 7. Başarılı Tamamlama
@@ -308,7 +302,6 @@ class CoverCraftOrchestrator:
         logger.info("CoverCraft Zamanlayıcı Servisi Başlatıldı.")
         logger.info(f"Saat Dilimi: {TIMEZONE_STR} | Günlük Çalışma Saati: {target_time} | Max Catchup: {self.max_catchup_days} Gün")
 
-        # Arka plan Heartbeat worker'ını başlat
         self._heartbeat_worker.start()
         self._status = "running"
 
