@@ -1,0 +1,1 @@
+"""CoverCraft Test Suite"""

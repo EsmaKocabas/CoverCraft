@@ -1,0 +1,45 @@
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Ortam & Sanal Ortamlar
+.env
+.env.*
+!.env.example
+venv/
+.venv/
+env/
+ENV/
+
+# Kimlik & Token Bilgileri (Güvenlik)
+config/token.json
+config/token.pickle
+config/client_secret.json
+config/*secret*.json
+config/*.pickle
+
+# Kilit Dosyaları
+*.lock
+
+# Çıktılar & Geçici Dosyalar (Büyük Dosyalar)
+outputs/*
+!outputs/.gitkeep
+
+# Model Ağırlıkları (Büyük Dosyalar)
+models/*
+!models/.gitkeep
+
+# Loglar ve Test Önbellekleri
+*.log
+logs/
+.pytest_cache/
+.mypy_cache/
+
+# IDE & İşletim Sistemi
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
