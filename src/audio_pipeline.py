@@ -34,7 +34,6 @@ class AudioPipeline:
         """Subprocess komutlarını process group izolasyonu ve zaman aşımıyla güvenli çalıştırır."""
         logger.info(f"[{task_name}] Komut başlatılıyor (Timeout: {timeout}s): {' '.join(cmd[:4])}...")
         try:
-            # POSIX'te alt süreçleri grup lideri olarak başlat (start_new_session=True)
             popen_kwargs: Dict[str, Any] = {
                 "stdout": subprocess.PIPE,
                 "stderr": subprocess.PIPE,
@@ -153,6 +152,10 @@ class AudioPipeline:
         return vocals_path, no_vocals_path
 
     def convert_voice(self, vocals_path: str, model_name: str, pitch_shift: int, task_dir: str, output_prefix: str) -> str:
+        """
+        Ayrılan vokali RVC v2 modeliyle dönüştürür.
+        Önce Python API (rvc_python.infer) var mı bakar, yoksa CLI komutuyla (rvc / rvc_python) çalıştırır.
+        """
         model_path = os.path.join(self.models_dir, f"{model_name}.pth")
         index_path = os.path.join(self.models_dir, f"{model_name}.index")
         converted_vocal = os.path.join(task_dir, f"{output_prefix}_converted_vocal.wav")
@@ -164,22 +167,37 @@ class AudioPipeline:
             )
 
         logger.info(f"RVC Ses Dönüşümü Başlatılıyor: Model={model_name}, Pitch={pitch_shift}")
-
-        cmd = [
-            "rvc", "infer",
-            "--input", vocals_path,
-            "--model", model_path,
-            "--pitch", str(pitch_shift),
-            "--method", "rmvpe",
-            "--output", converted_vocal
-        ]
-
-        if os.path.exists(index_path):
-            cmd.extend(["--index", index_path])
-        else:
+        actual_index = index_path if os.path.exists(index_path) else ""
+        if not actual_index:
             logger.warning(f"RVC index dosyası bulunamadı ({index_path}), index olmadan çalıştırılıyor.")
 
-        self._run_command(cmd, "rvc_infer", timeout=TIMEOUT_RVC)
+        # 1. Python API entegrasyonu (rvc_python paketi kuruluysa doğrudan ve hızlı GPU infer)
+        try:
+            from rvc_python.infer import infer_file
+            logger.info("rvc_python Python API ile doğrudan ses dönüşümü yapılıyor...")
+            infer_file(
+                input_path=vocals_path,
+                model_path=model_path,
+                index_path=actual_index,
+                f0_method="rmvpe",
+                f0_up_key=pitch_shift,
+                opt_path=converted_vocal
+            )
+        except ImportError:
+            # 2. CLI Fallback (rvc veya python -m rvc_python)
+            logger.info("rvc CLI komutu ile ses dönüşümü yapılıyor...")
+            cmd = [
+                "rvc", "infer",
+                "--input", vocals_path,
+                "--model", model_path,
+                "--pitch", str(pitch_shift),
+                "--method", "rmvpe",
+                "--output", converted_vocal
+            ]
+            if actual_index:
+                cmd.extend(["--index", actual_index])
+
+            self._run_command(cmd, "rvc_infer", timeout=TIMEOUT_RVC)
 
         if not os.path.exists(converted_vocal) or os.path.getsize(converted_vocal) == 0:
             raise RuntimeError(f"RVC ses dönüşüm dosyası üretilemedi veya boş: {converted_vocal}")

@@ -39,6 +39,6 @@ STOPSIGNAL SIGTERM
 
 # Container canlılık ve heartbeat kontrolü (Healthcheck)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
-    CMD python src/main.py --healthcheck || exit 1
+    CMD python -m src.main --healthcheck || exit 1
 
-CMD ["python", "src/main.py", "--scheduler"]
+CMD ["python", "-m", "src.main", "--scheduler"]
